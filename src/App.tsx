@@ -2,48 +2,77 @@ import { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
-  const [data, setData] = useState(null);
+  const [posts, setPosts] = useState([]); // 전체 글 목록
+  const [detail, setDetail] = useState(null); // 선택한 글의 상세 내용
+  const [loading, setLoading] = useState(true);
 
+  // 1. 처음 접속 시 글 목록(/api/data) 가져오기
   useEffect(() => {
-    // useEffect 안에서 async 함수를 선언하고 바로 실행해줍니다.
-    async function getDataFromWorker() {
-      const url = "https://blue-resonance-f210.doer1195.workers.dev/api/data";
-
+    async function fetchPosts() {
       try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`서버 에러 발생: ${response.status}`);
-        }
-
+        const response = await fetch("https://blue-resonance-f210.doer1195.workers.dev/api/data");
         const result = await response.json();
-        console.log("가져온 데이터:", result);
-        
-        // 받아온 데이터를 state에 저장
-        setData(result);
+        setPosts(result);
+        setLoading(false);
       } catch (error) {
-        console.error("데이터 패치 중 오류 발생:", error);
+        console.error("목록 로딩 중 에러:", error);
       }
     }
+    fetchPosts();
+  }, []);
 
-    getDataFromWorker(); 
-  }, []); // <-- 빈 배열([])을 넣어야 처음 켜질 때 딱 1번만 실행됩니다.
+  // 2. 제목 클릭 시 상세 내용(/api/data/:filename) 가져오기
+  const handlePostClick = async (title) => {
+    setLoading(true);
+    try {
+      // API 설계상 title(파일명)을 넘겨서 상세 데이터를 가져옵/니다.
+      const response = await fetch(`https://blue-resonance-f210.doer1195.workers.dev/api/data/${title}`);
+      const result = await response.json();
+      setDetail(result); // 상세 데이터(content, sha 등) 저장
+      setLoading(false);
+    } catch (error) {
+      console.error("상세 로딩 중 에러:", error);
+      setLoading(false);
+    }
+  };
 
-  // 데이터가 아직 안 왔을 때의 화면
-  if (!data) {
-    return <>로딩중...</>;
+  if (loading) return <>로딩 중...</>;
+
+  // 3. 상세 화면 (detail 데이터가 있을 때)
+  if (detail) {
+    return (
+      <div className="detail-view">
+        <button onClick={() => setDetail(null)}>← 목록으로 돌아가기</button>
+        <hr />
+        {/* 마크다운 원문을 그대로 보여주거나 라이브러리를 써서 렌더링 가능 */}
+        <div style={{ whiteSpace: "pre-wrap", textAlign: "left", padding: "20px" }}>
+          {detail.content}
+        </div>
+      </div>
+    );
   }
 
-  // 데이터가 왔을 때의 화면 (객체 형태면 JSON.stringify로 문자열로 변환해서 출력해야 합니다)
+  // 4. 목록 화면 (detail 데이터가 없을 때 기본값)
   return (
-    <>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </>
+    <div className="list-view">
+      <h1>게시글 목록</h1>
+      <ul style={{ listStyle: "none", padding: 0 }}>
+        {posts.map((post) => (
+          <li 
+            key={post.name} 
+            onClick={() => handlePostClick(post.title)}
+            style={{ 
+              cursor: "pointer", 
+              padding: "15px", 
+              borderBottom: "1px solid #eee",
+              fontSize: "1.2rem"
+            }}
+          >
+            {post.title}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
